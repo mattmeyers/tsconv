@@ -34,18 +34,29 @@ file redirect. If no timestamp is provided, then the current time will be used.
 Options:
   --out     The output format to use. Check below for allowed values.
             (default: rfc3339)
+  --tz      The output timezone to use. This can be any standard IANA timezone
+            or a +/- offset. (default: UTC)
 
 Supported Formats:
   rfc3339   2006-01-02T10:04:05-05:00
   rfc822    02 Jan 06 15:04 MST
   unix      Mon Jan  2 10:04:05 EST 2006
   epoch     1136214245
+
+Examples:
+  - Convert an epoch timestamp to an MST RFC822 timestamp
+      $ tsconv --out RFC822 --tz MST 1671849943
+      23 Dec 22 19:45 MST
+
+  - Convert a UTC timestamp to EST using an offset
+      $ tsconv --tz -5 2022-12-24T02:47:52Z
+      2022-12-23T21:47:52-05:00
 `
 
 func main() {
 	if err := run(os.Args); err != nil {
 		fmt.Println(err.Error())
-		flag.PrintDefaults()
+		flag.CommandLine.Usage()
 		os.Exit(1)
 	}
 }
@@ -63,6 +74,11 @@ func run(args []string) error {
 		return err
 	}
 
+	inputTime, err = setTimezone(inputTime, opts.timezone)
+	if err != nil {
+		return err
+	}
+
 	fmt.Println(formatOutput(inputTime, opts.outputFormat))
 
 	return nil
@@ -70,12 +86,14 @@ func run(args []string) error {
 
 type options struct {
 	outputFormat string
+	timezone     string
 }
 
 func initializeCLI() options {
 	var opts options
 
-	flag.StringVar(&opts.outputFormat, "out", "rfc3339", "The output format to use")
+	flag.StringVar(&opts.outputFormat, "out", "rfc3339", "The output format")
+	flag.StringVar(&opts.timezone, "tz", "UTC", "The output timezone")
 
 	flag.CommandLine.Usage = func() { fmt.Print(helpMessage) }
 
@@ -127,6 +145,38 @@ func parseInput(s string) (time.Time, error) {
 	}
 
 	return time.Time{}, errUnableToParse
+}
+
+func setTimezone(t time.Time, tz string) (time.Time, error) {
+	if strings.HasPrefix(tz, "+") || strings.HasPrefix(tz, "-") {
+		loc, err := parseOffset(tz)
+		if err != nil {
+			return time.Time{}, err
+		}
+
+		return t.In(loc), nil
+	}
+
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return t.In(loc), nil
+}
+
+func parseOffset(tz string) (*time.Location, error) {
+	offset, err := strconv.Atoi(tz[1:])
+	if err != nil {
+		return nil, err
+	}
+
+	if tz[0] == '-' {
+		offset *= -1
+	}
+
+	return time.FixedZone("", int((time.Duration(offset) * time.Hour).Seconds())), nil
+
 }
 
 func formatOutput(t time.Time, format string) string {
