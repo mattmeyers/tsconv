@@ -54,32 +54,48 @@ Examples:
 `
 
 func main() {
-	if err := run(os.Args); err != nil {
-		fmt.Println(err.Error())
+	if err := initializeApp().run(); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
 		flag.CommandLine.Usage()
 		os.Exit(1)
 	}
 }
 
-func run(args []string) error {
-	opts := initializeCLI()
+type app struct {
+	opts options
+	args []string
 
-	input, err := getInput(flag.Args(), os.Stdin)
+	clock clock
+
+	r io.Reader
+	w io.Writer
+}
+
+type clock interface {
+	Now() time.Time
+}
+
+type stdClock struct{}
+
+func (stdClock) Now() time.Time { return time.Now() }
+
+func (a app) run() error {
+	input, err := a.getInput()
 	if err != nil && err != errNoInput {
 		return err
 	}
 
-	inputTime, err := parseInput(input)
+	inputTime, err := a.parseInput(input)
 	if err != nil {
 		return err
 	}
 
-	inputTime, err = setTimezone(inputTime, opts.timezone)
+	inputTime, err = setTimezone(inputTime, a.opts.timezone)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(formatOutput(inputTime, opts.outputFormat))
+	fmt.Fprintln(a.w, formatOutput(inputTime, a.opts.outputFormat))
 
 	return nil
 }
@@ -89,7 +105,7 @@ type options struct {
 	timezone     string
 }
 
-func initializeCLI() options {
+func initializeApp() app {
 	var opts options
 
 	flag.StringVar(&opts.outputFormat, "out", "rfc3339", "The output format")
@@ -99,12 +115,19 @@ func initializeCLI() options {
 
 	flag.Parse()
 
-	return opts
+	return app{
+		opts:  opts,
+		clock: stdClock{},
+		args:  flag.Args(),
+		r:     os.Stdin,
+		w:     os.Stdout,
+	}
+
 }
 
-func getInput(args []string, f io.Reader) (string, error) {
-	if len(args) > 0 {
-		return args[0], nil
+func (a app) getInput() (string, error) {
+	if len(a.args) > 0 {
+		return a.args[0], nil
 	}
 
 	stat, err := os.Stdin.Stat()
@@ -117,7 +140,7 @@ func getInput(args []string, f io.Reader) (string, error) {
 	}
 
 	// A timestamp should never be more than 256 bytes
-	input, err := io.ReadAll(io.LimitReader(f, 256))
+	input, err := io.ReadAll(io.LimitReader(a.r, 256))
 	if err != nil {
 		return "", err
 	}
@@ -125,9 +148,9 @@ func getInput(args []string, f io.Reader) (string, error) {
 	return strings.TrimSpace(string(input)), nil
 }
 
-func parseInput(s string) (time.Time, error) {
+func (a app) parseInput(s string) (time.Time, error) {
 	if s == "" {
-		return time.Now(), nil
+		return a.clock.Now(), nil
 	}
 
 	out, err := strconv.Atoi(s)
