@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mattmeyers/tsconv/tsfmt"
 )
 
 var (
@@ -213,6 +215,6 @@ func formatOutput(t time.Time, format string) string {
 	case "epoch":
 		return strconv.Itoa(int(t.Unix()))
 	default:
-		return t.Format(time.RFC3339)
+		return tsfmt.Parse(format).Format(t)
 	}
 }
