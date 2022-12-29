@@ -25,7 +25,7 @@ var timeFormats = []string{
 }
 
 const helpMessage = `
-Usage:  tsconv [--out OUT] [TIMESTAMP]
+Usage:  tsconv [--out OUT] [--tz TIMEZONE] [TIMESTAMP]
 
 Convert a timestamp to another format
 
@@ -45,6 +45,35 @@ Supported Formats:
   unix      Mon Jan  2 10:04:05 EST 2006
   epoch     1136214245
 
+Custom Formatting:
+  A format string can be provided using the following characters. Any character
+  not in this table will be printed literally. To use one of these reserved
+  characters, prepend it with a backslash. If an empty format string is provided,
+  the timestamp will be printed as the epoch time.
+
+  | Symbol | Description                    | Example |
+  | ------ | ------------------------------ | ------- |
+  |   Y    | Four character year            | 2022    |
+  |   y    | Two character year             | 22      |
+  |   M    | Short month name               | Jan     |
+  |   MM   | Long month name                | January |
+  |   m    | Month index                    | 1       |
+  |   mm   | Zero padded month number       | 01      |
+  |   D    | Short day name                 | Sun     |
+  |   DD   | Long day name                  | Sunday  |
+  |   d    | Day number                     | 2       |
+  |   dd   | Zero padded day number         | 02      |
+  |   H    | 24-hour clock hour             | 16      |
+  |   HH   | Zero padded 24-hour clock hour | 04      |
+  |   h    | 12-hour clock hour             | 4       |
+  |   hh   | 12-hour clock hour             | 04      |
+  |   i    | Minutes                        | 1       |
+  |   ii   | Zero padded minutes            | 01      |
+  |   s    | Seconds                        | 2       |
+  |   ss   | Zero padded seconds            | 02      |
+  |   z    | Timezone offset                | -04:00  |
+  |   Z    | Timezone name                  | EST     |
+
 Examples:
   - Convert an epoch timestamp to an MST RFC822 timestamp
       $ tsconv --out RFC822 --tz MST 1671849943
@@ -53,6 +82,10 @@ Examples:
   - Convert a UTC timestamp to EST using an offset
       $ tsconv --tz -5 2022-12-24T02:47:52Z
       2022-12-23T21:47:52-05:00
+
+  - Convert an epoch timestamp with a custom format
+      $ tsconv --out 'D, MM d, Y' 1671849943
+      Sat, December 24, 2022
 `
 
 func main() {
